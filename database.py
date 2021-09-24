@@ -1,10 +1,6 @@
 #Intented to work on Repl.it using web server (flask) 
-
-import os
 from replit import db
 import datetime
-import pytz
-#import re
 import flask
 import requests
 import json
