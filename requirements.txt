@@ -1,0 +1,6 @@
+discord.py
+python-dotenv
+google-api-python-client
+pytz
+isodate
+regex
