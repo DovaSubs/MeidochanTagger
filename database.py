@@ -77,12 +77,6 @@ def format_time_output(secs):
     formatted = timemark.strftime('%-H:%M:%S')
   return formatted
 
-def convert_date(date_time_str):
-  date_time_obj = datetime.datetime.strptime(date_time_str, "%Y-%m-%dT%H:%M:%SZ")
-  date_time_obj = date_time_obj + datetime.timedelta(seconds=offset)
-  out = date_time_obj.replace(tzinfo=pytz.utc)
-  return out
-
 def format_tags(source, tags_list, tags_out):
   for idx in tags_list:
     secs = int(idx[0])
