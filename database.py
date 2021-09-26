@@ -31,8 +31,8 @@ def save():
 def findall():
   text = flask.request.args['text']
   #TODO: Proper decoding
-  tags = tags.replace("%C3%91","Ñ")
-  tags = tags.replace("%C3%B1", "ñ")
+  text = text.replace("%C3%91","Ñ")
+  text = text.replace("%C3%B1", "ñ")
   Stream_idx = int(flask.request.args['name'])
   keys_list = []
   for key in db.keys():
