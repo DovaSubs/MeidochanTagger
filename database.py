@@ -4,6 +4,7 @@ import datetime
 import flask
 import requests
 import json
+from urllib.parse import unquote
 
 app = flask.Flask(__name__)
 sess = requests.Session()
@@ -18,10 +19,7 @@ def home():
 def save():
   video_id = flask.request.args['video_id']
   tags = flask.request.args['tags']
-  #TODO: Proper decoding
-  tags = tags.replace("%20", " ")
-  tags = tags.replace("%C3%91","Ñ")
-  tags = tags.replace("%C3%B1", "ñ")
+  tags = unquote(tags)
   tags = json.loads(tags)
   if ('overwrite' in flask.request.args) or (video_id not in db.keys()):
     db[video_id] = tags
@@ -30,9 +28,7 @@ def save():
 @app.route("/findall")
 def findall():
   text = flask.request.args['text']
-  #TODO: Proper decoding
-  text = text.replace("%C3%91","Ñ")
-  text = text.replace("%C3%B1", "ñ")
+  text = unquote(text)
   Stream_idx = int(flask.request.args['name'])
   keys_list = []
   for key in db.keys():
