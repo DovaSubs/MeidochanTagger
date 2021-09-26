@@ -103,7 +103,7 @@ def main():
         request_db(url)
         success = True
       except Exception as e:
-        wait = retry_time;
+        wait = retry_time
         print ("Re-trying...")
         print(url)
         print(e)
@@ -503,7 +503,11 @@ def main():
       Stream_idx = STREAMS[name]
       text = message.message.content.split('!findall ')[1]
     text = quote(text)
-    mats_emb = request_db(main_url + f"/findall?text={text}&name={Stream_idx}") 
+    try:
+      mats_emb = request_db(main_url + f"/findall?text={text}&name={Stream_idx}") 
+    except:
+      await message.channel.send('Base de datos inactiva. Vuelva a intentarlo en unos minutos.')
+      return
     embed = Embed()
     text = unquote(text)
     embed.title = f'Resultados de la búsqueda de "{text}":'
@@ -518,7 +522,11 @@ def main():
     #  await message.channel.send("No tiene permisos.")
     #  await message.message.add_reaction('❌')
     #  return
-    sorted_rank = request_db(main_url + "/rank")
+    try:
+      sorted_rank = request_db(main_url + "/rank")
+    except:
+      await message.channel.send('Base de datos inactiva. Vuelva a intentarlo en unos minutos.')
+      return
     sorted_rank = json.loads(sorted_rank)
     guild = client.get_guild(message.guild.id)
     i = 1
