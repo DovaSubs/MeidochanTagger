@@ -88,8 +88,10 @@ def main():
   youtube = build("youtube", "v3", developerKey=api_key)  
         
   def save_tags(video_id, tags, overwrite=False):
-    tags_string = json.dumps(tags, separators=(',', ' '))
+    tags_string = json.dumps(tags, separators=(',', ' ')) #TODO: Proper encoding (and decoding in database.py) 
     tags_string = tags_string.replace(" ", "%20")
+    tags_string = tags_string.replace("Ñ", "%C3%91")
+    tags_string = tags_string.replace("ñ", "%C3%B1")
     video_id = video_id.replace(" ", "%20")
     success = False
     retry_time = 15
@@ -372,6 +374,9 @@ def main():
           await message.channel.send('No se encontraron tags en la base de datos')
           return
     else:
+      if not TAGS_LIST[Stream_idx]:
+        await message.channel.send('No existe stream configurado actualmente.')  
+        return
       stream_source = streams_ids[Stream_idx]
     Stream_idx = Names.index(stream_source.split()[1])
     if isLocal: #Con tags locales
@@ -498,6 +503,9 @@ def main():
     else:
       Stream_idx = STREAMS[name]
       text = message.message.content.split('!findall ')[1]
+    #TODO: Proper encoding
+    text = text.replace("Ñ", "%C3%91")
+    text = text.replace("ñ", "%C3%B1")
     mats_emb = request_db(main_url + f"/findall?text={text}&name={Stream_idx}") 
     embed = Embed()
     embed.title = f'Resultados de la búsqueda de "{text}":'
