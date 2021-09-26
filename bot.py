@@ -514,10 +514,10 @@ def main():
 ##################################### RANK
   @client.command()
   async def rank(message):
-    if not (utils.get(message.author.roles, name=role_admin) or utils.get(message.author.roles, name=role_translator) or message.author.id == id_admin):
-      await message.channel.send("No tiene permisos.")
-      await message.message.add_reaction('❌')
-      return
+    #if not (utils.get(message.author.roles, name=role_admin) or utils.get(message.author.roles, name=role_translator) or message.author.id == id_admin):
+    #  await message.channel.send("No tiene permisos.")
+    #  await message.message.add_reaction('❌')
+    #  return
     sorted_rank = request_db(main_url + "/rank")
     sorted_rank = json.loads(sorted_rank)
     guild = client.get_guild(message.guild.id)
