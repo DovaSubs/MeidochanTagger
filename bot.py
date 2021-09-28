@@ -28,9 +28,9 @@ def format_time_output(secs):
   if secs<60:
     formatted = timemark.strftime('%S')
   elif secs<3600:
-    formatted = timemark.strftime('%M:%S')
+    formatted = timemark.strftime('%-M:%S')
   else:
-    formatted = timemark.strftime('%H:%M:%S')
+    formatted = timemark.strftime('%-H:%M:%S')
   return formatted
           
 def convert_date(date_time_str, offset_sec):
@@ -192,8 +192,12 @@ def main():
     isPaused[Stream_idx] = False
     time_paused[Stream_idx] = 0
     total_time_paused[Stream_idx] = 0
-    link = message.message.content.split()[1]
-    source = link[-11::]+f' {Names[Stream_idx]}'
+    cmd = message.message.content.split()
+    if len(cmd)!=2:
+      await message.channel.send('Error en el URL del stream. Utilice: !stream «URL»')
+      return
+    link = cmd[1][-11::]
+    source = link+f' {Names[Stream_idx]}'
     if streams_ids[Stream_idx] == source:
       await message.channel.send(f"Este stream ya se encuentra configurado.")
       return
