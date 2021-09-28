@@ -28,9 +28,9 @@ def format_time_output(secs):
   if secs<60:
     formatted = timemark.strftime('%S')
   elif secs<3600:
-    formatted = timemark.strftime('%-M:%S')
+    formatted = timemark.strftime('%M:%S')
   else:
-    formatted = timemark.strftime('%-H:%M:%S')
+    formatted = timemark.strftime('%H:%M:%S')
   return formatted
           
 def convert_date(date_time_str, offset_sec):
@@ -143,33 +143,38 @@ def main():
     
 ################################## REACTIONS
   @client.event
-  async def on_reaction_add(reaction, user): 
-    if user.id == id_admin and reaction.message.author == client.user and reaction.emoji =='❌': #Admin del bot elimina mensajes del mismo reaccionando con '❌':
-      await reaction.message.delete()
+  async def on_raw_reaction_add(payload):
+    reaction = payload.emoji
+    channel = client.get_channel(payload.channel_id)
+    user = client.get_user(payload.user_id)
+    message = await channel.fetch_message(payload.message_id)
+    if not user:
+        user = await client.fetch_user(payload.user_id)
+    if user.id == id_admin and message.author == client.user and str(reaction) =='❌': #Admin del bot elimina mensajes del mismo reaccionando con '❌':
+      await message.delete()
     if user == client.user:
       return
-    if reaction.message.channel.name in STREAMS:
+    if channel.name in STREAMS:
       try:
-        Stream_idx = STREAMS[reaction.message.channel.name]
+        Stream_idx = STREAMS[channel.name]
         if streams_ids[Stream_idx]:
           id_data = TAGS_LIST[Stream_idx]
           ids = []
-          msg_id = reaction.message.id
+          msg_id = message.id
           for idx in id_data:
             ids.append(idx[3])
           if msg_id in ids: #Solo opera sobre tags anteriores
             msg_idx = ids.index(msg_id)
-            print(msg_idx)
-            if reaction.emoji =='❌': 
-              if user.id==reaction.message.author.id:
+            if str(reaction) =='❌': 
+              if user.id==message.author.id:
                 del TAGS_LIST[Stream_idx][msg_idx]
-                await reaction.message.delete()
+                await message.delete()
               elif utils.get(user.roles, name=role_admin) or utils.get(user.roles, name=role_translator) or user.id == id_admin: #Roles y personas autorizadas:
                 del TAGS_LIST[Stream_idx][msg_idx]
-                await reaction.message.delete()
-            if reaction.emoji =='⭐': #Para hacer upvote a la tag
+                await message.delete()
+            if str(reaction) == '⭐': #Para hacer upvote a la tag
               msg_cont = TAGS_LIST[Stream_idx][msg_idx]
-              msg_cont[2] = reaction.count
+              msg_cont[2] = utils.get(message.reactions, emoji='⭐').count
               TAGS_LIST[Stream_idx][msg_idx] = msg_cont 
       except Exception as e:
         print(f'This is an exception: {e}')
