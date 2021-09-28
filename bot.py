@@ -28,9 +28,9 @@ def format_time_output(secs):
   if secs<60:
     formatted = timemark.strftime('%S')
   elif secs<3600:
-    formatted = timemark.strftime('%M:%S')
+    formatted = timemark.strftime('%-M:%S')
   else:
-    formatted = timemark.strftime('%H:%M:%S')
+    formatted = timemark.strftime('%-H:%M:%S')
   return formatted
           
 def convert_date(date_time_str, offset_sec):
