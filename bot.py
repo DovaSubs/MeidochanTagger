@@ -127,6 +127,8 @@ def main():
     return tags
       
   streams_ids, isFinished = load_ids()
+  print(streams_ids)
+  print(isFinished)
 # Checks if stream is not Finished and loads its tags
   if False in isFinished:
     for idx in range(len(isFinished)):
