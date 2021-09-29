@@ -15,6 +15,21 @@ Names = ['miu', 'lia', 'laila', 'hana', 'piyoko', 'hina', 'rose', 'suzu', 'rui',
 def home():
     return "Hello. I am alive!"
 
+@app.route("/load_tags")
+def load_tags():
+  stream_source = flask.request.args['video_id']
+  stream_source = stream_source.replace("%20", " ")
+  out = ''
+  if stream_source in db.keys():
+    if type(db[stream_source][0]) == str: #Because I fucked up the first item of every key in the previous database 
+      x = db[stream_source][1:]
+    else: #New database format
+      x = db[stream_source]
+    out = [list(idx) for idx in x]
+    out = json.dumps(out, separators=(',', ' '))
+    out = quote(out)
+  return out
+
 @app.route("/load_ids")
 def load_ids():
   x = db['streams_ids'][1:]
@@ -36,6 +51,7 @@ def save_tags():
 @app.route("/save_id")
 def save_id():
   video_id = flask.request.args['video_id']
+  video_id = video_id.replace("%20", " ")
   index = int(flask.request.args['index'])
   x = db['streams_ids'][1:]
   x[index] = video_id
@@ -43,15 +59,18 @@ def save_id():
   isFinished = db['isFinished'][1:] 
   isFinished[index] = 'False'
   db['isFinished'][1:] = isFinished
+  print(x)
+  print(isFinished)
   return "Done!"
 
 @app.route("/save_state")
 def save_state():
-  index = flask.request.args['index']
+  index = int(flask.request.args['index'])
   state = flask.request.args['state']
   isFinished = db['isFinished'][1:] 
   isFinished[index] = state
   db['isFinished'][1:] = isFinished
+  print(isFinished)
   return "Done!"
 
 @app.route("/findall")
