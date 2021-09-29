@@ -4,7 +4,7 @@ import datetime
 import flask
 import requests
 import json
-from urllib.parse import unquote
+from urllib.parse import unquote, quote
 
 app = flask.Flask(__name__)
 sess = requests.Session()
@@ -15,14 +15,43 @@ Names = ['miu', 'lia', 'laila', 'hana', 'piyoko', 'hina', 'rose', 'suzu', 'rui',
 def home():
     return "Hello. I am alive!"
 
-@app.route("/save")
-def save():
+@app.route("/load_ids")
+def load_ids():
+  x = db['streams_ids'][1:]
+  y = db['isFinished'][1:]
+  out = [x]+[y]
+  out = json.dumps(out, separators=(',', ' '))
+  out = quote(out)
+  return out
+
+@app.route("/save_tags")
+def save_tags():
   video_id = flask.request.args['video_id']
   tags = flask.request.args['tags']
   tags = unquote(tags)
   tags = json.loads(tags)
-  if ('overwrite' in flask.request.args) or (video_id not in db.keys()):
-    db[video_id] = tags
+  db[video_id] = tags
+  return "Done!"
+
+@app.route("/save_id")
+def save_id():
+  video_id = flask.request.args['video_id']
+  index = int(flask.request.args['index'])
+  x = db['streams_ids'][1:]
+  x[index] = video_id
+  db['streams_ids'][1:] = x
+  isFinished = db['isFinished'][1:] 
+  isFinished[index] = 'False'
+  db['isFinished'][1:] = isFinished
+  return "Done!"
+
+@app.route("/save_state")
+def save_state():
+  index = flask.request.args['index']
+  state = flask.request.args['state']
+  isFinished = db['isFinished'][1:] 
+  isFinished[index] = state
+  db['isFinished'][1:] = isFinished
   return "Done!"
 
 @app.route("/findall")

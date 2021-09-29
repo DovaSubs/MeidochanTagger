@@ -74,21 +74,70 @@ def main():
   luna = 'luna-chat'
   STREAMS = {miu:0, lia:1, laila:2, hana:3, piyoko:4, hina:5, rose:6, suzu:7, rui:8, pal:9, luna:10}
   Names = ['miu', 'lia', 'laila', 'hana', 'piyoko', 'hina', 'rose', 'suzu', 'rui', 'pal', 'luna']
+
+  streams_ids = ['', '', '', '', '', '', '', '', '', '', '']
+  isFinished = [True, True, True, True, True, True, True, True, True, True, True]
+  
   total_time_paused = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   time_paused = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   isPaused = [False, False, False, False, False, False, False, False, False, False, False]
+  
   start_time_utc = ['', '', '', '', '', '', '', '', '', '', '']
-  streams_ids = ['', '', '', '', '', '', '', '', '', '', '']
   TAGS_LIST = [[], [], [], [], [], [], [], [], [], [], []]
-  isFinished = [True, True, True, True, True, True, True, True, True, True, True]
   
   #Repl.it webserver url in .env file (it's possible to use plain text) 
   main_url = os.getenv('main_url')
   #Google Cloud Platform: Application's Api key in .env file
   api_key = os.getenv('api_key')
   youtube = build("youtube", "v3", developerKey=api_key)  
+
+# Loads ids from database
+  def load_ids():
+    success = False
+    retry_time = 15
+    while not success: 
+      try:
+        ids = request_db(main_url + f"/load_ids")
+        success = True
+      except Exception as e:
+        print ("Re-trying...")
+        print(e)
+        sys.stdout.flush()
+        sleep(retry_time)
+    ids = unquote(ids)
+    ids = json.loads(ids)
+    ids[1] = [False if x == "False" else True for x in ids[1]]
+    return ids[0], ids[1]
+
+  def load_tags(video_id):
+    video_id = video_id.replace(" ", "%20")
+    success = False
+    retry_time = 15
+    while not success: 
+      try:
+        tags = request_db(main_url + f"/load_tags?video_id={video_id}")
+        success = True
+      except Exception as e:
+        print ("Re-trying...")
+        print(e)
+        sys.stdout.flush()
+        sleep(retry_time)
+    tags = unquote(tags)
+    tags = json.loads(tags)
+    return tags
+      
+  streams_ids, isFinished = load_ids()
+# Checks if stream is not Finished and loads its tags
+  if False in isFinished:
+    for idx in range(len(isFinished)):
+      if not isFinished[idx]:
+        TAGS_LIST[idx] = load_tags(streams_ids[idx])
+        request = youtube.videos().list(part="liveStreamingDetails", id=streams_ids[idx].split()[0])
+        response = request.execute()
+        date_time_str =response['items'][0]['liveStreamingDetails']['actualStartTime']
+        start_time_utc[idx] = convert_date(date_time_str, offset_sec)
         
-  def save_tags(video_id, tags, overwrite=False):
+  def save_tags(video_id, tags):
     tags_string = json.dumps(tags, separators=(',', ' '))
     tags_string = quote(tags_string)
     video_id = video_id.replace(" ", "%20")
@@ -96,20 +145,45 @@ def main():
     retry_time = 15
     while not success: #Simple try/except, can be improved
       try:
-        if overwrite:
-          url = main_url + f"/save?video_id={video_id}&tags={tags_string}&overwrite=True"
-        else:
-          url = main_url + f"/save?video_id={video_id}&tags={tags_string}"
+        url = main_url + f"/save_tags?video_id={video_id}&tags={tags_string}"
         request_db(url)
         success = True
       except Exception as e:
         wait = retry_time
         print ("Re-trying...")
-        print(url)
         print(e)
         sys.stdout.flush()
         sleep(wait)
-    
+        
+  def save_id(index, video_id):
+    video_id = video_id.replace(" ", "%20")
+    success = False
+    retry_time = 15
+    while not success: 
+      try:
+        request_db(main_url + f"/save_id?video_id={video_id}&index={index}")
+        success = True
+      except Exception as e:
+        wait = retry_time
+        print ("Re-trying...")
+        print(e)
+        sys.stdout.flush()
+        sleep(wait)
+
+  def save_state(index, state):
+    success = False
+    retry_time = 15
+    while not success: 
+      try:
+        request_db(main_url + f"/save_state?state={state}&index={index}")
+        success = True
+      except Exception as e:
+        wait = retry_time
+        print ("Re-trying...")
+        print(e)
+        sys.stdout.flush()
+        sleep(wait)
+        
   client = commands.Bot(command_prefix='!')
   client.remove_command('help')
   @client.event
@@ -211,11 +285,10 @@ def main():
     try:
       date_time_str =response['items'][0]['liveStreamingDetails']['actualStartTime']
       start_time_utc[Stream_idx] = convert_date(date_time_str, offset_sec)
-      if not isFinished[Stream_idx]: #Tags anteriores no han sido guardadas
-        processThread = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
-        processThread.start()
       streams_ids[Stream_idx] = source
       isFinished[Stream_idx] = False
+      processThread = Thread(target=save_id, args=[Stream_idx, streams_ids[Stream_idx]])
+      processThread.start()
       TAGS_LIST[Stream_idx] = []                  
       await message.channel.send(f"Stream configurado correctamente")
     except IndexError:
@@ -265,6 +338,8 @@ def main():
       else:
         secs = str(round((time_now_utc - start_time_utc[Stream_idx] - datetime.timedelta(seconds=total_time_paused[Stream_idx])+ datetime.timedelta(seconds=hasAdjust)).total_seconds()))
       TAGS_LIST[Stream_idx].append([secs, new_tag, 1, msg.id, msg.author.id]) #time, tag, upvotes, messageID, author
+      processThread = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
+      processThread.start()
       await msg.add_reaction('⭐')
       await msg.add_reaction('❌')
     else:
@@ -330,7 +405,7 @@ def main():
             data[idx][0] = str(int(data[idx][0]) + num_off)
             TAGS_LIST[Stream_idx][idx] = data[idx]
         if isFinished[Stream_idx]:
-          processThread = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx], True])
+          processThread = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
           processThread.start()
         await message.message.add_reaction('\N{Thumbs Up Sign}')
     except Exception as e:
@@ -349,56 +424,53 @@ def main():
     cmd = message.message.content.split()
     if len(cmd)>1: #URL
       video_url = cmd[1][-11::]
-      for current in streams_ids: #Busqueda en stream actuales
-        if current:
-          if video_url == current.split()[0]:
-            stream_source = current
-            break
-      if not stream_source: #Busqueda DataBase
-        try: #Comprueba el url
-          request = youtube.videos().list(part="liveStreamingDetails", id=video_url)
-          response = request.execute()
-          date_time_str =response['items'][0]['liveStreamingDetails']['actualStartTime']
-          date_time_obj = datetime.datetime.strptime(date_time_str, "%Y-%m-%dT%H:%M:%SZ")
-          start_time_utc_print = date_time_obj.replace(tzinfo=pytz.utc)
-        except IndexError:
-          #print('Error en el link.')
-          await message.channel.send("Error en el enlace.\nUtilice enlaces con el formato:\nhttps://www.youtube.com/watch?v=C7e1EJdtoCM\no\nhttps://youtu.be/C7e1EJdtoCM")
-          await message.message.add_reaction('❌')
-          return
-        except KeyError:
-          #print('Stream no activo')
-          await message.channel.send("El stream no existe.")
-          await message.message.add_reaction('❌')
-          return
-        tags_emb = request_db(main_url + f"/tags?video_id={video_url}")
-        if tags_emb:
-          name = tags_emb.split("[")[0]
-          tags_emb = tags_emb[len(name):]
-          stream_source = video_url + " " + name
-          isLocal = False
-          num_tags = len(tags_emb.splitlines())
-        else:
-          await message.channel.send('No se encontraron tags en la base de datos')
-          return
-    else:
-      if not streams_ids[Stream_idx]:
-        await message.channel.send('No existe stream configurado actualmente.')  
+      #Busqueda DataBase
+      try: #Comprueba el url
+        request = youtube.videos().list(part="liveStreamingDetails", id=video_url)
+        response = request.execute()
+        date_time_str =response['items'][0]['liveStreamingDetails']['actualStartTime']
+        date_time_obj = datetime.datetime.strptime(date_time_str, "%Y-%m-%dT%H:%M:%SZ")
+        start_time_utc_print = date_time_obj.replace(tzinfo=pytz.utc)
+      except IndexError:
+        #print('Error en el link.')
+        await message.channel.send("Error en el enlace.\nUtilice enlaces con el formato:\nhttps://www.youtube.com/watch?v=C7e1EJdtoCM\no\nhttps://youtu.be/C7e1EJdtoCM")
+        await message.message.add_reaction('❌')
         return
+      except KeyError:
+        #print('Stream no activo')
+        await message.channel.send("El stream no existe.")
+        await message.message.add_reaction('❌')
+        return
+      tags_emb = request_db(main_url + f"/tags?video_id={video_url}")
+      if tags_emb:
+        name = tags_emb.split("[")[0]
+        tags_emb = tags_emb[len(name):]
+        stream_source = video_url + " " + name
+        isLocal = False
+        num_tags = len(tags_emb.splitlines())
+        Stream_idx = Names.index(name)
+      else:
+        await message.channel.send('No se encontraron tags en la base de datos')
+        return
+    else:
       stream_source = streams_ids[Stream_idx]
-    Stream_idx = Names.index(stream_source.split()[1])
-    if isLocal: #Con tags locales
-      start_time_utc_print = start_time_utc[Stream_idx] - datetime.timedelta(seconds=offset_sec) #Actual start time (no offset)
-      #Revisa si el stream terminó:
-      request = youtube.videos().list(part="contentDetails", id=stream_source.split()[0])
+      request = youtube.videos().list(part="liveStreamingDetails", id=stream_source.split()[0])
       response = request.execute()
-      date_time_str = response['items'][0]['contentDetails']['duration']
-      duration = isodate.parse_duration(date_time_str)
-      secs = duration.total_seconds()
-      if secs != 0 and not isFinished[Stream_idx]:
-        processThread = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
-        processThread.start()
-        isFinished[Stream_idx] = True
+      date_time_str =response['items'][0]['liveStreamingDetails']['actualStartTime']
+      date_time_obj = datetime.datetime.strptime(date_time_str, "%Y-%m-%dT%H:%M:%SZ")
+      start_time_utc_print = date_time_obj.replace(tzinfo=pytz.utc)
+      Stream_idx = Names.index(stream_source.split()[1])
+      if not isFinished[Stream_idx]:
+        #Revisa si el stream terminó:
+        request = youtube.videos().list(part="contentDetails", id=stream_source.split()[0])
+        response = request.execute()
+        date_time_str = response['items'][0]['contentDetails']['duration']
+        duration = isodate.parse_duration(date_time_str)
+        secs = duration.total_seconds()
+        if secs != 0 and not isFinished[Stream_idx]:
+          processThread = Thread(target=save_state, args=[Stream_idx, True])
+          processThread.start()
+          isFinished[Stream_idx] = True
       tags_emb = format_tags(stream_source.split()[0], TAGS_LIST[Stream_idx], tags_emb)          
       num_tags = len(TAGS_LIST[Stream_idx])
     msg_len = len(tags_emb.split('|')) #Splitting message
@@ -431,16 +503,16 @@ def main():
       response = request.execute()
       date_time_str = response['items'][0]['contentDetails']['duration']
       duration = isodate.parse_duration(date_time_str)
-      secs = duration.total_seconds()
-      if secs != 0:
-        processThread = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
-        processThread.start()
-        isFinished[Stream_idx] = True
-      else:
+      secs = duration.total_seconds()       
+      if secs == 0:
         time_now = datetime.datetime.utcnow()
         time_now_utc = time_now.replace(tzinfo=pytz.utc)
         start_time_utc_print = start_time_utc[Stream_idx] - datetime.timedelta(seconds=offset_sec) #Actual start time (no offset)
         secs = round((time_now_utc - start_time_utc_print - datetime.timedelta(seconds=total_time_paused[Stream_idx])).total_seconds())
+      elif not isFinished[Stream_idx]:
+        processThread = Thread(target=save_state, args=[Stream_idx, True])
+        processThread.start()
+        isFinished[Stream_idx] = True
       aux2 = format_time_output(secs)
       if isFinished[Stream_idx] == True:
         await message.channel.send(f"El stream de {Names[Stream_idx].capitalize()} ha finalizado con una duración de {aux2}")
