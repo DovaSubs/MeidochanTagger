@@ -133,11 +133,15 @@ def main():
   if False in isFinished:
     for idx in range(len(isFinished)):
       if not isFinished[idx]:
+        
         TAGS_LIST[idx] = load_tags(streams_ids[idx])
         request = youtube.videos().list(part="liveStreamingDetails", id=streams_ids[idx].split()[0])
         response = request.execute()
-        date_time_str =response['items'][0]['liveStreamingDetails']['actualStartTime']
-        start_time_utc[idx] = convert_date(date_time_str, offset_sec)
+        try: #TODO: Check if privated and pass (set isFinished to True)
+          date_time_str =response['items'][0]['liveStreamingDetails']['actualStartTime']
+          start_time_utc[idx] = convert_date(date_time_str, offset_sec)
+        except:
+          pass
         
   def save_tags(video_id, tags):
     tags_string = json.dumps(tags, separators=(',', ' '))
