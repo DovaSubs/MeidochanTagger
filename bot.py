@@ -75,13 +75,15 @@ def main():
   STREAMS = {miu:0, lia:1, laila:2, hana:3, piyoko:4, hina:5, rose:6, suzu:7, rui:8, pal:9, luna:10}
   Names = ['miu', 'lia', 'laila', 'hana', 'piyoko', 'hina', 'rose', 'suzu', 'rui', 'pal', 'luna']
 
+  TL_prefix = ['[Esp]', '[ES]']
+  processThread = ['', '', '', '', '', '', '', '', '', '', '']
+
   streams_ids = ['', '', '', '', '', '', '', '', '', '', '']
   isFinished = [True, True, True, True, True, True, True, True, True, True, True]
   
   total_time_paused = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   time_paused = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   isPaused = [False, False, False, False, False, False, False, False, False, False, False]
-  
   start_time_utc = ['', '', '', '', '', '', '', '', '', '', '']
   TAGS_LIST = [[], [], [], [], [], [], [], [], [], [], []]
   
@@ -122,8 +124,10 @@ def main():
         print(e)
         sys.stdout.flush()
         sleep(retry_time)
+    
     tags = unquote(tags)
-    tags = json.loads(tags)
+    if tags:
+      tags = json.loads(tags)
     return tags
       
   streams_ids, isFinished = load_ids()
@@ -133,15 +137,15 @@ def main():
   if False in isFinished:
     for idx in range(len(isFinished)):
       if not isFinished[idx]:
-        
         TAGS_LIST[idx] = load_tags(streams_ids[idx])
         request = youtube.videos().list(part="liveStreamingDetails", id=streams_ids[idx].split()[0])
         response = request.execute()
-        try: #TODO: Check if privated and pass (set isFinished to True)
+        try: #Check if privated and pass (set isFinished to True)
           date_time_str =response['items'][0]['liveStreamingDetails']['actualStartTime']
           start_time_utc[idx] = convert_date(date_time_str, offset_sec)
         except:
-          pass
+          process = Thread(target=save_state, args=[idx, True])
+          process.start()
         
   def save_tags(video_id, tags):
     tags_string = json.dumps(tags, separators=(',', ' '))
@@ -195,7 +199,36 @@ def main():
   @client.event
   async def on_ready():
     print(f'{client.user.name} has connected.')
-  
+
+###################### TRANSLATIONS PICK UP 
+  def check_translation(video_id, channel):
+    request = youtube.videos().list(part="liveStreamingDetails", id=video_id)
+    response = request.execute()
+    chat_id = response['items'][0]['liveStreamingDetails']['activeLiveChatId']
+    msg_list = []
+    Stream_idx = STREAMS[channel.name]
+    while not isFinished[Stream_idx]:
+      print(channel.name)
+      request_chat = youtube.liveChatMessages().list(liveChatId=chat_id, part="snippet")
+      response_chat = request_chat.execute()
+      for idx in range(len(response_chat['items'])):
+        chat = response_chat['items'][idx]['snippet']['displayMessage']
+        author_id = response_chat['items'][idx]['snippet']['authorChannelId']
+        isTL = True in (chat.lower().startswith(pref.lower()) for pref in TL_prefix)
+        if isTL:
+          msg_id = response_chat['items'][idx]['id']
+          if msg_id not in msg_list:
+            msg_list.append(msg_id)
+            request_author = youtube.channels().list(id=author_id,part='snippet')
+            response_author = request_author.execute()
+            author = response_author['items'][0]['snippet']['title']
+            client.dispatch('send_msg', channel, f'||{author}|| {chat}')
+      sleep(3)
+
+  @client.event
+  async def on_send_msg(channel, msg):
+    await channel.send('\N{Speech Balloon}' + msg)
+    
 ################################## EDIT TAG
   @client.event
   async def on_message_edit(before, after):
@@ -267,6 +300,15 @@ def main():
       await message.channel.send('Hello Master!')
     else:
       await message.channel.send(f'Hi {msg.author.mention}')
+
+#################################### Force TL Pick up (In case of bot reset)
+  @client.command()
+  async def start_TL(message):
+    if message.channel.name not in STREAMS:
+      return
+    Stream_idx = (STREAMS[message.channel.name])
+    processThread[Stream_idx] = Thread(target=check_translation, args=[streams_ids[Stream_idx].split()[0], message.channel])
+    processThread[Stream_idx].start()
     
 #################################### SET STREAM
   @client.command()
@@ -283,9 +325,9 @@ def main():
       return
     link = cmd[1][-11::]
     source = link+f' {Names[Stream_idx]}'
-    if streams_ids[Stream_idx] == source:
-      await message.channel.send(f"Este stream ya se encuentra configurado.")
-      return
+    #if streams_ids[Stream_idx] == source:
+    #  await message.channel.send(f"Este stream ya se encuentra configurado.")
+    #  return
     request = youtube.videos().list(part="liveStreamingDetails", id=source.split()[0])
     response = request.execute()
     try:
@@ -293,9 +335,12 @@ def main():
       start_time_utc[Stream_idx] = convert_date(date_time_str, offset_sec)
       streams_ids[Stream_idx] = source
       isFinished[Stream_idx] = False
-      processThread = Thread(target=save_id, args=[Stream_idx, streams_ids[Stream_idx]])
-      processThread.start()
-      TAGS_LIST[Stream_idx] = []                  
+      process = Thread(target=save_id, args=[Stream_idx, streams_ids[Stream_idx]])
+      process.start()
+      TAGS_LIST[Stream_idx] = []
+      #Start Threads for Translations
+      processThread[Stream_idx] = Thread(target=check_translation, args=[link, message.channel])
+      processThread[Stream_idx].start()
       await message.channel.send(f"Stream configurado correctamente")
     except IndexError:
       await message.channel.send("Error en el enlace.\nUtilice enlaces con el formato:\nhttps://www.youtube.com/watch?v=C7e1EJdtoCM\no\nhttps://youtu.be/C7e1EJdtoCM")
@@ -303,7 +348,7 @@ def main():
     except KeyError:
       await message.channel.send("Stream no activo, inténtelo más tarde.")
       await message.message.add_reaction('❌')
-
+    
 ##################################### NEW TAG
   @client.command()
   async def t(message):
@@ -344,8 +389,8 @@ def main():
       else:
         secs = str(round((time_now_utc - start_time_utc[Stream_idx] - datetime.timedelta(seconds=total_time_paused[Stream_idx])+ datetime.timedelta(seconds=hasAdjust)).total_seconds()))
       TAGS_LIST[Stream_idx].append([secs, new_tag, 1, msg.id, msg.author.id]) #time, tag, upvotes, messageID, author
-      processThread = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
-      processThread.start()
+      process = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
+      process.start()
       await msg.add_reaction('⭐')
       await msg.add_reaction('❌')
     else:
@@ -411,8 +456,8 @@ def main():
             data[idx][0] = str(int(data[idx][0]) + num_off)
             TAGS_LIST[Stream_idx][idx] = data[idx]
         if isFinished[Stream_idx]:
-          processThread = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
-          processThread.start()
+          process = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
+          process.start()
         await message.message.add_reaction('\N{Thumbs Up Sign}')
     except Exception as e:
       print(e)
@@ -474,8 +519,8 @@ def main():
         duration = isodate.parse_duration(date_time_str)
         secs = duration.total_seconds()
         if secs != 0 and not isFinished[Stream_idx]:
-          processThread = Thread(target=save_state, args=[Stream_idx, True])
-          processThread.start()
+          process = Thread(target=save_state, args=[Stream_idx, True])
+          process.start()
           isFinished[Stream_idx] = True
       tags_emb = format_tags(stream_source.split()[0], TAGS_LIST[Stream_idx], tags_emb)          
       num_tags = len(TAGS_LIST[Stream_idx])
@@ -516,8 +561,8 @@ def main():
         start_time_utc_print = start_time_utc[Stream_idx] - datetime.timedelta(seconds=offset_sec) #Actual start time (no offset)
         secs = round((time_now_utc - start_time_utc_print - datetime.timedelta(seconds=total_time_paused[Stream_idx])).total_seconds())
       elif not isFinished[Stream_idx]:
-        processThread = Thread(target=save_state, args=[Stream_idx, True])
-        processThread.start()
+        process = Thread(target=save_state, args=[Stream_idx, True])
+        process.start()
         isFinished[Stream_idx] = True
       aux2 = format_time_output(secs)
       if isFinished[Stream_idx] == True:
