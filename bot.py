@@ -93,6 +93,53 @@ def main():
   api_key = os.getenv('api_key')
   youtube = build("youtube", "v3", developerKey=api_key)  
 
+  def save_tags(video_id, tags):
+    tags_string = json.dumps(tags, separators=(',', ' '))
+    tags_string = quote(tags_string)
+    video_id = video_id.replace(" ", "%20")
+    success = False
+    retry_time = 15
+    while not success: #Simple try/except, can be improved
+      try:
+        url = main_url + f"/save_tags?video_id={video_id}&tags={tags_string}"
+        request_db(url)
+        success = True
+      except Exception as e:
+        wait = retry_time
+        print ("Re-trying...")
+        print(e)
+        sys.stdout.flush()
+        sleep(wait)
+        
+  def save_id(index, video_id):
+    video_id = video_id.replace(" ", "%20")
+    success = False
+    retry_time = 15
+    while not success: 
+      try:
+        request_db(main_url + f"/save_id?video_id={video_id}&index={index}")
+        success = True
+      except Exception as e:
+        wait = retry_time
+        print ("Re-trying...")
+        print(e)
+        sys.stdout.flush()
+        sleep(wait)
+
+  def save_state(index, state):
+    success = False
+    retry_time = 15
+    while not success: 
+      try:
+        request_db(main_url + f"/save_state?state={state}&index={index}")
+        success = True
+      except Exception as e:
+        wait = retry_time
+        print ("Re-trying...")
+        print(e)
+        sys.stdout.flush()
+        sleep(wait)
+        
 # Loads ids from database
   def load_ids():
     success = False
@@ -147,52 +194,7 @@ def main():
           process = Thread(target=save_state, args=[idx, True])
           process.start()
         
-  def save_tags(video_id, tags):
-    tags_string = json.dumps(tags, separators=(',', ' '))
-    tags_string = quote(tags_string)
-    video_id = video_id.replace(" ", "%20")
-    success = False
-    retry_time = 15
-    while not success: #Simple try/except, can be improved
-      try:
-        url = main_url + f"/save_tags?video_id={video_id}&tags={tags_string}"
-        request_db(url)
-        success = True
-      except Exception as e:
-        wait = retry_time
-        print ("Re-trying...")
-        print(e)
-        sys.stdout.flush()
-        sleep(wait)
-        
-  def save_id(index, video_id):
-    video_id = video_id.replace(" ", "%20")
-    success = False
-    retry_time = 15
-    while not success: 
-      try:
-        request_db(main_url + f"/save_id?video_id={video_id}&index={index}")
-        success = True
-      except Exception as e:
-        wait = retry_time
-        print ("Re-trying...")
-        print(e)
-        sys.stdout.flush()
-        sleep(wait)
-
-  def save_state(index, state):
-    success = False
-    retry_time = 15
-    while not success: 
-      try:
-        request_db(main_url + f"/save_state?state={state}&index={index}")
-        success = True
-      except Exception as e:
-        wait = retry_time
-        print ("Re-trying...")
-        print(e)
-        sys.stdout.flush()
-        sleep(wait)
+  
         
   client = commands.Bot(command_prefix='!')
   client.remove_command('help')
