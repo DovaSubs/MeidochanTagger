@@ -75,7 +75,7 @@ def main():
   STREAMS = {miu:0, lia:1, laila:2, hana:3, piyoko:4, hina:5, rose:6, suzu:7, rui:8, pal:9, luna:10}
   Names = ['miu', 'lia', 'laila', 'hana', 'piyoko', 'hina', 'rose', 'suzu', 'rui', 'pal', 'luna']
 
-  TL_prefix = ['[Esp]', '[ES]']
+  TL_prefix = ['[Esp]', '[ES]', '(ES)','(ESP)', 'ESP:']
   processThread = ['', '', '', '', '', '', '', '', '', '', '']
 
   streams_ids = ['', '', '', '', '', '', '', '', '', '', '']
