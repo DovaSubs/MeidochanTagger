@@ -329,9 +329,9 @@ def main():
       return
     link = cmd[1][-11::]
     source = link+f' {Names[Stream_idx]}'
-    #if streams_ids[Stream_idx] == source:
-    #  await message.channel.send(f"Este stream ya se encuentra configurado.")
-    #  return
+    if streams_ids[Stream_idx] == source:
+      await message.channel.send(f"Este stream ya se encuentra configurado.")
+      return
     request = youtube.videos().list(part="liveStreamingDetails", id=source.split()[0])
     response = request.execute()
     try:
@@ -343,8 +343,8 @@ def main():
       process.start()
       TAGS_LIST[Stream_idx] = []
       #Start Threads for Translations
-      processThread[Stream_idx] = Thread(target=check_translation, args=[link, message.channel])
-      processThread[Stream_idx].start()
+      #processThread[Stream_idx] = Thread(target=check_translation, args=[link, message.channel])
+      #processThread[Stream_idx].start()
       await message.channel.send(f"Stream configurado correctamente")
     except IndexError:
       await message.channel.send("Error en el enlace.\nUtilice enlaces con el formato:\nhttps://www.youtube.com/watch?v=C7e1EJdtoCM\no\nhttps://youtu.be/C7e1EJdtoCM")
