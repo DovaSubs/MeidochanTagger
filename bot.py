@@ -223,10 +223,10 @@ def main():
           msg_id = response_chat['items'][idx]['id']
           if msg_id not in msg_list:
             msg_list.append(msg_id)
-            request_author = youtube.channels().list(id=author_id,part='snippet')
-            response_author = request_author.execute()
-            author = response_author['items'][0]['snippet']['title']
-            client.dispatch('send_msg', channel, f'||{author}|| {chat}')
+            #request_author = youtube.channels().list(id=author_id,part='snippet')
+            #response_author = request_author.execute()
+            #author = response_author['items'][0]['snippet']['title']
+            client.dispatch('send_msg', channel, f'||{author_id}|| {chat}')
       sleep(3)
 
   @client.event
