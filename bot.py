@@ -175,6 +175,8 @@ def main():
     tags = unquote(tags)
     if tags:
       tags = json.loads(tags)
+    else:
+      tags = []
     return tags
       
   streams_ids, isFinished = load_ids()
@@ -301,7 +303,7 @@ def main():
     if message.author.id == id_admin:
       await message.channel.send('Hello Master!')
     else:
-      await message.channel.send(f'Hi {msg.author.mention}')
+      await message.channel.send(f'Hi {message.author.mention}')
 
 #################################### Force TL Pick up (In case of bot reset)
   @client.command()
