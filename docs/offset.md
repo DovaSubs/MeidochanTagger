@@ -3,11 +3,6 @@
 ## Uso únicamente para admins/mods del bot
 
 `!offset <posición (segundos)> <cantidad (segundos)>` realizará un desplazamiento de la "cantidad" específicada afectando a todas las tags que se encuentren después del tiempo dado en "posición". La cantidad puede ser negativa.
-  
-Ejemplo 1: 
-
-Ejemplo 2: `!offset 120 -10` desplazará 10 segundos atrás a todas las tags apartir del minuto 2 (120 segundos).
-
 
 **Ejemplo 1: En caso de un stream con la intro recortada**
 
