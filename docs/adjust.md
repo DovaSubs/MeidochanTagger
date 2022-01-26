@@ -17,7 +17,7 @@ La cantidad puede ser positiva (Ej: `!ajust 5` la tag se ubicará 5 segundos des
 
 No es posible ajustar el tiempo de tags de otros usuarios o de tags anteriores propias. 
 
-El tiempo transcurrido entre la tag y el comando `!adjust` no afecta el tiempo ajustado, es decir, no hay diferencia entre usar `!adjust -15` al instante o hacerlo 5 minutos después, la tag se ajustará con 15 segundos menos. 
+El tiempo transcurrido entre la tag y el comando `!adjust` no afecta el tiempo ajustado, es decir, no hay diferencia entre usar `!adjust -15` al instante o hacerlo 5 minutos después, la tag se ajustará con 15 segundos menos respecto al momento en que se utilizó `!t <texto>`. 
 
 ## Ajustar tiempo en el mismo mensaje
 

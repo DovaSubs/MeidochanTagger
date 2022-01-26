@@ -10,7 +10,7 @@
 
   ![](/images/movistar.png)
 
-- El tiempo se detiene para las tags que se relicen mientras el tiempo está pausado:
+- El tiempo se detiene para las tags que se realicen mientras el tiempo está pausado:
 
   ![](/images/movistar2.png)
 

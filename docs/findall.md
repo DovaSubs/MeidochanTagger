@@ -2,7 +2,7 @@
 
 ## Uso en los canales Vtuber-chat
 
-`!findall <texto de búsqueda>` buscará el texto en todos los streams tageados de dicha vtuber.
+`!findall <texto de búsqueda>` buscará el texto en todos los streams tageados de dicha vtuber. El bot tardará alrededor de 10 segundos en responder ya que debe buscar en cada stream de la base de datos. 
 
 **Ejemplo:**
 

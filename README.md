@@ -13,6 +13,7 @@ El bot funciona para taggear streams en los siguientes canales de texto:
 * rui-chat
 * pal-chat
 * luna-chat
+* himari-chat
 
 ## Setup
 
