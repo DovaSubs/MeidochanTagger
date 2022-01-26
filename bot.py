@@ -13,6 +13,18 @@ import json
 import sys
 from threading import Thread
 from time import sleep
+import pytchat
+import emoji
+import deepl
+
+def translate(message):
+  translator = deepl.Translator("cc57dcd0-0e11-4548-0bc4-0ebfa7172bcc:fx")
+  trad = translator.translate_text(message, source_lang="JA", target_lang="ES")
+  if message in trad.text:
+    translated = ''
+  else:
+    translated = trad.text
+  return translated
 
 def request_db(url):
   strng = ''
@@ -52,7 +64,8 @@ def format_tags(source, tags_list, tags_out): #Formatting tags so it can be spli
       tags_out = tags_out + f"[{aux2}]({timestamp}) " + idx[1] + '\n'
   return tags_out
   
-def main():  
+def main():
+  non_bmp_map = dict.fromkeys(range(0x10000, sys.maxunicode + 1), 0xfffd)
   load_dotenv()
   role_admin = 'moderator'
   role_translator = 'Translator'
@@ -72,20 +85,30 @@ def main():
   rui = 'rui-chat'
   pal = 'pal-chat'
   luna = 'luna-chat'
-  STREAMS = {miu:0, lia:1, laila:2, hana:3, piyoko:4, hina:5, rose:6, suzu:7, rui:8, pal:9, luna:10}
-  Names = ['miu', 'lia', 'laila', 'hana', 'piyoko', 'hina', 'rose', 'suzu', 'rui', 'pal', 'luna']
+  himari = 'himari-chat'
+  wactor_members = ["UCM6iy_rSgSMbFjx10Z6VVGA", "UCJePO0Zl-zZTqjpHO82RNNA",
+                    "UCFSkExeBcqI4nb_ArHeByNw", "UCMUmvaIF0-fBHzxt1PLOq3A",
+                    "UC9PGxFdFkAge6TK8oPJJmQQ", "UC6tSB9TnO0f01OBeo9UEJZA",
+                    "UCNJwC2OjJ0Hsc2HT1D6jmJw", "UCqTymU8oHTygrEzas_gVBFg",
+                    "",                         "UCQdqGzhc5Ey_5nh_bOowAhg",
+                    "UCN3mosAMYBdogyQovOhPrxA", "UCAx0YWXJgyvXx5oDvrDaN_A",
+                    "UC7WdQ18zMLLg6V-pz9YuUnw"] #12: meido 
+  STREAMS = {miu:0, lia:1, laila:2, hana:3, piyoko:4, hina:5, rose:6, suzu:7, rui:8, pal:9, luna:10, himari:11}
+  Names = ['miu', 'lia', 'laila', 'hana', 'piyoko', 'hina', 'rose', 'suzu', 'rui', 'pal', 'luna', 'himari']
+  twitch_ids = ['miu', 'lia', 'laila', 'hana', 'piyoko', 'hina', 'rose', 'suzu', 'rui', 'pal', 'lunarurine_wactor', 'himari']
 
-  TL_prefix = ['[Esp]', '[ES]', '(ES)','(ESP)', 'ESP:']
-  processThread = ['', '', '', '', '', '', '', '', '', '', '']
+  TL_prefix = ['[Esp]', '[ES]', '(ES)','(ESP)', 'ESP:', 'ES:', '[EN]', 'EN:']
+  processThread = ['', '', '', '', '', '', '', '', '', '', '', '']
 
-  streams_ids = ['', '', '', '', '', '', '', '', '', '', '']
-  isFinished = [True, True, True, True, True, True, True, True, True, True, True]
+  streams_ids = ['', '', '', '', '', '', '', '', '', '', '', '']
+  isFinished = [True, True, True, True, True, True, True, True, True, True, True, True]
+  isTwitchFinished = [True, True, True, True, True, True, True, True, True, True, True, True]
   
-  total_time_paused = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  time_paused = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  isPaused = [False, False, False, False, False, False, False, False, False, False, False]
-  start_time_utc = ['', '', '', '', '', '', '', '', '', '', '']
-  TAGS_LIST = [[], [], [], [], [], [], [], [], [], [], []]
+  total_time_paused = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  time_paused = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  isPaused = [False, False, False, False, False, False, False, False, False, False, False, False, False]
+  start_time_utc = ['', '', '', '', '', '', '', '', '', '', '', '']
+  TAGS_LIST = [[], [], [], [], [], [], [], [], [], [], [], []]
   
   #Repl.it webserver url in .env file (it's possible to use plain text) 
   main_url = os.getenv('main_url')
@@ -126,6 +149,10 @@ def main():
         sys.stdout.flush()
         sleep(wait)
 
+  def save_first_tag(index, video_id, tags):
+    save_id(index, video_id)
+    save_tags(video_id, tags)
+        
   def save_state(index, state):
     success = False
     retry_time = 15
@@ -182,7 +209,7 @@ def main():
   streams_ids, isFinished = load_ids()
   print(streams_ids)
   print(isFinished)
-# Checks if stream is not Finished and loads its tags
+ #Checks if stream is not Finished and loads its tags
   if False in isFinished:
     for idx in range(len(isFinished)):
       if not isFinished[idx]:
@@ -195,17 +222,15 @@ def main():
         except:
           process = Thread(target=save_state, args=[idx, True])
           process.start()
-        
-  
-        
-  client = commands.Bot(command_prefix='!')
+          
+  client = commands.Bot(command_prefix='!', case_insensitive=True)
   client.remove_command('help')
   @client.event
   async def on_ready():
     print(f'{client.user.name} has connected.')
 
-###################### TRANSLATIONS PICK UP 
-  def check_translation(video_id, channel):
+#################### TRANSLATIONS PICK UP 
+  def check_translation_api(video_id, channel):
     request = youtube.videos().list(part="liveStreamingDetails", id=video_id)
     response = request.execute()
     chat_id = response['items'][0]['liveStreamingDetails']['activeLiveChatId']
@@ -226,12 +251,49 @@ def main():
             #request_author = youtube.channels().list(id=author_id,part='snippet')
             #response_author = request_author.execute()
             #author = response_author['items'][0]['snippet']['title']
-            client.dispatch('send_msg', channel, f'||{author_id}|| {chat}')
-      sleep(3)
+            client.dispatch('send_msg', channel, f'\N{Speech Balloon}||{author_id}|| ``{chat}``')
+      sleep(5)
+
+  def check_translation(vid_id, channel):
+    print('TL Enabled')
+    Stream_idx = STREAMS[channel.name]
+    chat = pytchat.create(video_id=vid_id, interruptable=False)
+    client.dispatch('send_msg', channel, f'Estaré recogiendo traducciones del chat de {Names[Stream_idx].capitalize()}')
+    while not isFinished[Stream_idx]:
+      try:
+        for c in chat.get().sync_items():    
+          isTL = True in (c.message.lower().startswith(pref.lower()) for pref in TL_prefix)
+          if isTL:
+            client.dispatch('send_msg', channel, f'\N{Speech Balloon}||{c.author.name}|| ``{emoji.emojize(c.message)}``')
+          elif c.author.channelId in wactor_members:
+            if c.type == "textMessage":
+              message_translated = translate(c.message)
+              if message_translated:
+                client.dispatch('send_msg', channel, f'<:WACTOR:892998346204131378>**{c.author.name}**: ``{c.message}``\n<:DeepL:907412599598092359>**DeepL**: ``{message_translated}``')
+              else:
+                client.dispatch('send_msg', channel, f'<:WACTOR:892998346204131378>**{c.author.name}**: ``{c.message}``')
+            if c.type == "superSticker":
+              client.dispatch('send_msg', channel, f'<:WACTOR:892998346204131378>SuperSticker de **{c.author.name}** {c.message}')
+      except Exception as e:
+        print(e)
+        #Revisa si el stream terminó:
+        request = youtube.videos().list(part="contentDetails", id=vid_id)
+        response = request.execute()
+        date_time_str = response['items'][0]['contentDetails']['duration']
+        duration = isodate.parse_duration(date_time_str)
+        secs = duration.total_seconds()
+        if secs != 0:
+          isFinished[Stream_idx] = True
+          process = Thread(target=save_state, args=[Stream_idx, True])
+          process.start()
+        else:
+          chat = pytchat.create(video_id=vid_id, interruptable=False)       
+      sleep(1)
+    #client.dispatch('send_msg', channel, f'Terminé de recoger traducciones')
 
   @client.event
   async def on_send_msg(channel, msg):
-    await channel.send('\N{Speech Balloon}' + msg)
+    await channel.send(msg)
     
 ################################## EDIT TAG
   @client.event
@@ -265,12 +327,14 @@ def main():
     channel = client.get_channel(payload.channel_id)
     user = client.get_user(payload.user_id)
     message = await channel.fetch_message(payload.message_id)
+    #print(payload.emoji)
     if not user:
         user = await client.fetch_user(payload.user_id)
     if user.id == id_admin and message.author == client.user and str(reaction) =='❌': #Admin del bot elimina mensajes del mismo reaccionando con '❌':
       await message.delete()
     if user == client.user:
       return
+    
     if channel.name in STREAMS:
       try:
         Stream_idx = STREAMS[channel.name]
@@ -305,16 +369,86 @@ def main():
     else:
       await message.channel.send(f'Hi {message.author.mention}')
 
-#################################### Force TL Pick up (In case of bot reset)
+
+
+#################################### Force TL Pick up 
   @client.command()
-  async def start_TL(message):
+  async def dstart_TL_(message):
     if message.channel.name not in STREAMS:
       return
     Stream_idx = (STREAMS[message.channel.name])
     processThread[Stream_idx] = Thread(target=check_translation, args=[streams_ids[Stream_idx].split()[0], message.channel])
     processThread[Stream_idx].start()
+#################################### Force TL Pick up (YouTube API)
+  @client.command()
+  async def dstart_TL_API_(message):
+    if message.channel.name not in STREAMS:
+      return
+    Stream_idx = (STREAMS[message.channel.name])
+    processThread[Stream_idx] = Thread(target=check_translation_api, args=[streams_ids[Stream_idx].split()[0], message.channel])
+    processThread[Stream_idx].start()
     
+#################################### Manual stop TL Pick up (Should be used twice)
+  @client.command()
+  async def dstop_TL(message):
+    if message.channel.name not in STREAMS:
+      return
+    Stream_idx = (STREAMS[message.channel.name])
+    if isFinished[Stream_idx] == True:
+      isFinished[Stream_idx] = False
+    else:
+      isFinished[Stream_idx] = True
+
+#################################### Stream State
+  @client.command()
+  async def state(message):
+    if message.channel.name not in STREAMS:
+      return
+    Stream_idx = (STREAMS[message.channel.name])
+    print(isFinished[Stream_idx])
+    client.dispatch('send_msg', message.channel, isFinished[Stream_idx])
+
 #################################### SET STREAM
+
+  @client.command()
+  async def start(message):
+    if message.channel.name not in STREAMS:
+      return
+    Stream_idx = (STREAMS[message.channel.name])
+    if Stream_idx == 8: #Rui doesn't have YT ch
+      await message.channel.send("Rui no tiene canal de Youtube.")
+      return
+    r = request_db(f'https://www.youtube.com/channel/{wactor_members[Stream_idx]}/live') 
+    try:
+      link = r.split("youtube.com/watch?v=")[1][:11]
+    except IndexError:
+      await message.channel.send("No se encontró stream.")
+      return
+    source = link+f' {Names[Stream_idx]}'
+    if streams_ids[Stream_idx] == source:
+      await message.channel.send(f"Este stream ya se encuentra configurado.")
+      return
+    request = youtube.videos().list(part="liveStreamingDetails", id=source.split()[0])
+    response = request.execute()
+    try:
+      date_time_str =response['items'][0]['liveStreamingDetails']['actualStartTime']
+      start_time_utc[Stream_idx] = convert_date(date_time_str, offset_sec)
+      streams_ids[Stream_idx] = source
+      isFinished[Stream_idx] = False
+      #process = Thread(target=save_id, args=[Stream_idx, streams_ids[Stream_idx]])
+      #process.start()
+      TAGS_LIST[Stream_idx] = []
+      isPaused[Stream_idx] = False
+      time_paused[Stream_idx] = 0
+      total_time_paused[Stream_idx] = 0
+      #Start Threads for Translations
+      processThread[Stream_idx] = Thread(target=check_translation, args=[link, message.channel])
+      processThread[Stream_idx].start()
+      await message.channel.send(f"Se configuró el siguiente stream: https://youtu.be/{link}")
+    except KeyError:
+      await message.channel.send("Stream no activo, inténtelo más tarde.")
+      await message.message.add_reaction('❌')
+    
   @client.command()
   async def stream(message):
     if message.channel.name not in STREAMS:
@@ -339,12 +473,12 @@ def main():
       start_time_utc[Stream_idx] = convert_date(date_time_str, offset_sec)
       streams_ids[Stream_idx] = source
       isFinished[Stream_idx] = False
-      process = Thread(target=save_id, args=[Stream_idx, streams_ids[Stream_idx]])
-      process.start()
+      #process = Thread(target=save_id, args=[Stream_idx, streams_ids[Stream_idx]])
+      #process.start()
       TAGS_LIST[Stream_idx] = []
       #Start Threads for Translations
-      #processThread[Stream_idx] = Thread(target=check_translation, args=[link, message.channel])
-      #processThread[Stream_idx].start()
+      processThread[Stream_idx] = Thread(target=check_translation, args=[link, message.channel])
+      processThread[Stream_idx].start()
       await message.channel.send(f"Stream configurado correctamente")
     except IndexError:
       await message.channel.send("Error en el enlace.\nUtilice enlaces con el formato:\nhttps://www.youtube.com/watch?v=C7e1EJdtoCM\no\nhttps://youtu.be/C7e1EJdtoCM")
@@ -393,8 +527,12 @@ def main():
       else:
         secs = str(round((time_now_utc - start_time_utc[Stream_idx] - datetime.timedelta(seconds=total_time_paused[Stream_idx])+ datetime.timedelta(seconds=hasAdjust)).total_seconds()))
       TAGS_LIST[Stream_idx].append([secs, new_tag, 1, msg.id, msg.author.id]) #time, tag, upvotes, messageID, author
-      process = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
-      process.start()
+      if len(TAGS_LIST[Stream_idx])>1:
+        process = Thread(target=save_tags, args=[streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
+        process.start()
+      else:
+        process = Thread(target=save_first_tag, args=[Stream_idx, streams_ids[Stream_idx], TAGS_LIST[Stream_idx]])
+        process.start()
       await msg.add_reaction('⭐')
       await msg.add_reaction('❌')
     else:
@@ -418,7 +556,7 @@ def main():
       await message.channel.send(f"Stream pausado. Para reanudar vuelva a utilizar el comando: !movistar")
     
 ##################################### ADJUST TAG
-  @client.command()
+  @client.command(aliases=['adj'])
   async def adjust(message):
     if message.channel.name not in STREAMS:
       return
@@ -570,7 +708,7 @@ def main():
         isFinished[Stream_idx] = True
       aux2 = format_time_output(secs)
       if isFinished[Stream_idx] == True:
-        await message.channel.send(f"El stream de {Names[Stream_idx].capitalize()} ha finalizado con una duración de {aux2}")
+        await message.channel.send(f"El stream anterior de {Names[Stream_idx].capitalize()} ha finalizado con una duración de {aux2}.\nPara configurar un nuevo stream utilice: !stream (URL del stream)")
       else:
         await message.channel.send(f"{Names[Stream_idx].capitalize()} lleva {aux2} de stream")
     else:
